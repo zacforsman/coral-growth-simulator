@@ -1,2 +1,2 @@
 # coral-growth-simulator
-An html of coral growth, recruitment, mortality and disturbance
+An html simulation of coral growth, recruitment, mortality and disturbance.
