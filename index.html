@@ -1,0 +1,454 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Coral Growth Simulator — Beta V3.1 (Patch-based, Restored Features)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root{
+    --bg:#0e1114; --panel:#10161b; --muted:#8fa3b0; --text:#e6eef2; --accent:#2aa8ff; --border:#1f2933; --chip:#18222b; --tick:#ef4444;
+  }
+  html,body{height:100%}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:var(--bg);color:var(--text)}
+  h1{margin:16px 12px 6px;font-size:18px;font-weight:700;letter-spacing:.2px}
+  #topbar{display:flex;gap:12px;align-items:center;justify-content:space-between;margin:0 12px 8px;flex-wrap:wrap}
+  #coverPct{font-weight:800;font-size:16px}
+  #container{display:flex;gap:12px;align-items:flex-start;margin:0 12px 16px}
+  #left{flex:1;min-width:740px}
+  #right{width:420px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px;position:sticky;top:12px;max-height:92vh;overflow:auto}
+  canvas{display:block;width:800px;height:800px;background:#10171d;border-radius:10px;box-shadow:0 6px 30px rgba(0,0,0,.25) inset}
+  #controls{margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .btn{background:var(--accent);color:#001018;border:none;padding:6px 10px;border-radius:8px;font-weight:700;cursor:pointer}
+  .btn.ghost{background:#1b2833;color:var(--text);border:1px solid var(--border)}
+  .btn:active{transform:translateY(1px)}
+  input[type=number],input[type=range],select{background:#0f1419;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px}
+  label{font-weight:700;font-size:13px}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:10px}
+  .species{background:var(--chip)}
+  .row{display:flex;gap:8px;align-items:center}
+  .col{flex:1}
+  .swatch{width:16px;height:16px;border-radius:4px;display:inline-block;border:1px solid rgba(255,255,255,.15)}
+  .muted{color:var(--muted);font-size:12px}
+  .example{font-size:12px;color:var(--muted);background:#0f1419;border:1px dashed var(--border);padding:6px;border-radius:8px;margin-top:4px}
+  details{background:#0b1217;border:1px solid var(--border);border-radius:10px;padding:8px}
+  summary{cursor:pointer;font-weight:800}
+  a{color:#7bdaf5}
+  code{background:#0f1419;padding:2px 4px;border-radius:6px;border:1px solid var(--border)}
+  #tickTrack{position:relative;width:800px;height:10px;margin-top:2px}
+  .tick{position:absolute;bottom:0;width:2px;height:10px;background:var(--tick)}
+  .tick::after{content:"";position:absolute;bottom:10px;left:-2px;width:6px;height:6px;border-radius:50%;background:var(--tick)}
+  .note{font-size:11px;color:#9fb2bf}
+</style>
+</head>
+<body>
+  <h1>Coral Growth Simulator — Beta V3.1 (Patch-based, 10 × 10 m)</h1>
+  <div id="topbar">
+    <div id="coverPct">Total coral cover: 0.00 %</div>
+    <div class="muted">Filled, irregular patches; contact-limited growth; stochastic disturbance (default start 3 y, every 4 y, pale linger 4 y).</div>
+    <div class="row">
+      <button class="btn ghost" id="resetBtn">Reset</button>
+    </div>
+  </div>
+
+  <div id="container">
+    <div id="left">
+      <canvas id="plot" width="800" height="800" title="Top-down 10×10 m"></canvas>
+
+      <div id="controls">
+        <button class="btn" id="playBtn">Play</button>
+        <button class="btn ghost" id="pauseBtn">Pause</button>
+        <span class="muted">Time:</span>
+        <input id="timeline" type="range" min="0" max="30" step="0.5" value="0" list="yearTicks" style="width:800px">
+        <datalist id="yearTicks"></datalist>
+        <div id="tickTrack"></div>
+        <div class="muted">Year: <span id="yearLabel">0.0</span></div>
+        <label class="muted" style="margin-left:8px">Speed</label>
+        <input id="speed" type="range" min="0.25" max="4" step="0.25" value="1">
+        <span class="muted" id="speedLabel">1×</span>
+      </div>
+
+      <div class="muted" style="margin-top:8px;">Timeline ticks every 1 year (slider step = 0.5 years). Disturbance years shown as red marks.</div>
+    </div>
+
+    <aside id="right">
+      <div class="panel species">
+        <div class="row" style="justify-content:space-between;">
+          <div><strong>Massive</strong> <span class="muted">(smooth blobs)</span></div>
+          <span class="swatch" style="background:#d2b48c"></span>
+        </div>
+        <label>Growth (cm²·yr⁻¹)</label>
+        <input id="g_massive" type="number" min="0" step="1" value="60">
+        <div class="example">Example range: <strong>10–630 cm²·yr⁻¹</strong></div>
+        <label style="margin-top:6px">Recruitment (larvae·cm⁻²·yr⁻¹)</label>
+        <input id="r_massive" type="number" min="0" step="0.0001" value="0.0002">
+        <div class="example">Example range: <strong>0.00005–0.02</strong></div>
+        <label style="margin-top:6px">Mortality (cm²·yr⁻¹)</label>
+        <input id="m_massive" type="number" min="0" step="1" value="20">
+      </div>
+
+      <div class="panel species">
+        <div class="row" style="justify-content:space-between;">
+          <div><strong>Branching (medium)</strong> <span class="muted">(lobed blobs)</span></div>
+          <span class="swatch" style="background:#ff8fbf"></span>
+        </div>
+        <label>Growth (cm²·yr⁻¹)</label>
+        <input id="g_branch_med" type="number" min="0" step="1" value="400">
+        <div class="example">Example range: <strong>60–3,800 cm²·yr⁻¹</strong></div>
+        <label style="margin-top:6px">Recruitment (larvae·cm⁻²·yr⁻¹)</label>
+        <input id="r_branch_med" type="number" min="0" step="0.0001" value="0.001">
+        <div class="example">Example range: <strong>0.0001–0.05</strong></div>
+        <label style="margin-top:6px">Mortality (cm²·yr⁻¹)</label>
+        <input id="m_branch_med" type="number" min="0" step="1" value="60">
+      </div>
+
+      <div class="panel species">
+        <div class="row" style="justify-content:space-between;">
+          <div><strong>Branching (fast)</strong> <span class="muted">(filamentous blobs)</span></div>
+          <span class="swatch" style="background:#d9c3ff"></span>
+        </div>
+        <label>Growth (cm²·yr⁻¹)</label>
+        <input id="g_branch_fast" type="number" min="0" step="1" value="1000">
+        <div class="example">Example range: <strong>100–5,000 cm²·yr⁻¹</strong></div>
+        <label style="margin-top:6px">Recruitment (larvae·cm⁻²·yr⁻¹)</label>
+        <input id="r_branch_fast" type="number" min="0" step="0.0001" value="0.002">
+        <div class="example">Example range: <strong>0.0002–0.1</strong></div>
+        <label style="margin-top:6px">Mortality (cm²·yr⁻¹)</label>
+        <input id="m_branch_fast" type="number" min="0" step="1" value="120">
+      </div>
+
+      <div class="panel">
+        <label>Simulation controls</label>
+        <div class="row" style="margin-top:6px;flex-wrap:wrap">
+          <button id="useDefaults" class="btn ghost">Use literature defaults</button>
+          <button id="spawnMany" class="btn">Spawn initial colonies</button>
+          <button id="toggleAdvanced" class="btn ghost">Advanced ▼</button>
+        </div>
+        <div class="muted" style="margin-top:6px;">Spawn creates a realistic, non-overlapping reef mosaic using field-derived size distributions.</div>
+      </div>
+
+      <div id="advancedPanel" class="panel" style="display:none;">
+        <strong>Advanced configuration</strong>
+        <div class="muted" style="margin:6px 0 8px;">Tune initial size distributions, size-dependent mortality, and disturbance schedule. (Defaults match earlier spec: start 3 y, every 4 y, linger 4 y.)</div>
+        <details open>
+          <summary>Disturbance schedule & outcomes</summary>
+          <div class="row" style="gap:12px;flex-wrap:wrap;margin-top:8px">
+            <div class="col">
+              <label>Start year</label>
+              <input id="advStartYear" type="number" value="3" min="0" step="0.5">
+            </div>
+            <div class="col">
+              <label>Every (years)</label>
+              <input id="advIntervalYears" type="number" value="4" min="1" step="0.5">
+            </div>
+            <div class="col">
+              <label>Pale linger (years)</label>
+              <input id="advLingerYears" type="number" value="4" min="0" step="0.5">
+            </div>
+          </div>
+          <div class="row" style="gap:12px;flex-wrap:wrap;margin-top:8px">
+            <div class="col">
+              <label>Resistant %</label>
+              <input id="advPResist" type="number" value="35" min="0" max="100">
+            </div>
+            <div class="col">
+              <label>Partial %</label>
+              <input id="advPPartial" type="number" value="45" min="0" max="100">
+            </div>
+            <div class="col">
+              <label>Crash %</label>
+              <input id="advPCrash" type="number" value="20" min="0" max="100">
+            </div>
+          </div>
+        </details>
+        <details style="margin-top:8px;">
+          <summary>Initial size distributions (log-normal on diameter)</summary>
+          <div class="row" style="margin-top:6px;gap:12px;flex-wrap:wrap">
+            <div class="col">
+              <div><strong>Massive</strong></div>
+              <label>μ (ln-cm)</label>
+              <input id="mu_massive" type="number" step="0.01" value="3.6">
+              <label>σ</label>
+              <input id="sigma_massive" type="number" step="0.01" value="0.45">
+              <label>Min–Max diameter (cm)</label>
+              <div class="row"><input id="minD_massive" type="number" value="20"> <input id="maxD_massive" type="number" value="100"></div>
+              <label>Target count</label>
+              <input id="count_massive" type="number" value="40">
+            </div>
+            <div class="col">
+              <div><strong>Branching (medium)</strong></div>
+              <label>μ (ln-cm)</label>
+              <input id="mu_branch_med" type="number" step="0.01" value="2.8">
+              <label>σ</label>
+              <input id="sigma_branch_med" type="number" step="0.01" value="0.5">
+              <label>Min–Max diameter (cm)</label>
+              <div class="row"><input id="minD_branch_med" type="number" value="10"> <input id="maxD_branch_med" type="number" value="40"></div>
+              <label>Target count</label>
+              <input id="count_branch_med" type="number" value="120">
+            </div>
+            <div class="col">
+              <div><strong>Branching (fast)</strong></div>
+              <label>μ (ln-cm)</label>
+              <input id="mu_branch_fast" type="number" step="0.01" value="2.4">
+              <label>σ</label>
+              <input id="sigma_branch_fast" type="number" step="0.01" value="0.55">
+              <label>Min–Max diameter (cm)</label>
+              <div class="row"><input id="minD_branch_fast" type="number" value="5"> <input id="maxD_branch_fast" type="number" value="30"></div>
+              <label>Target count</label>
+              <input id="count_branch_fast" type="number" value="180">
+            </div>
+          </div>
+        </details>
+        <details style="margin-top:8px;">
+          <summary>Size-dependent mortality (exponential decay)</summary>
+          <div class="muted" style="margin:6px 0;">Effective mortality multiplier = <code>1 + A · e^(−k · D)</code>, where <code>D</code> is colony diameter (cm).</div>
+          <div class="row" style="gap:12px;flex-wrap:wrap">
+            <div class="col"><label>A (small-colony boost)</label><input id="mortA" type="number" step="0.1" value="4"></div>
+            <div class="col"><label>k (decay per cm)</label><input id="mortK" type="number" step="0.01" value="0.08"></div>
+          </div>
+        </details>
+      </div>
+
+      <div class="panel">
+        <strong>Methods & notes</strong>
+        <ul class="muted">
+          <li><strong>Cover</strong>: drawn-pixel occupancy of filled patches (offscreen raster).</li>
+          <li><strong>Growth</strong>: species cm²·yr⁻¹ → patch radial expansion; halts on contact.</li>
+          <li><strong>Recruitment</strong>: recruits per cm²·yr⁻¹ scaled by free area; small non-overlapping blobs.</li>
+          <li><strong>Mortality</strong>: baseline area loss × size-decay multiplier.</li>
+          <li><strong>Disturbance</strong>: per-event Resistant/Partial/Crash with size/species bias; pale overlay lingers.</li>
+        </ul>
+        <div class="muted note">Defaults informed by Coral Trait Database & literature (converted for a 10×10 m plot). This is a visual simulator, not a forecasting tool.</div>
+      </div>
+
+      <div id="selfTests" class="panel" style="display:none;"></div>
+    </aside>
+  </div>
+
+<script>
+// ====== Geometry & scaling ======
+const CANVAS_PX = 800;
+const PLOT_M = 10;                 // 10 m window
+const PLOT_CM = PLOT_M * 100;      // 1000 cm per side
+const TOTAL_PLOT_CM2 = PLOT_CM * PLOT_CM; // 1,000,000 cm²
+const CM_TO_PX = CANVAS_PX / PLOT_CM;     // 0.8 px per cm
+
+// Canvas & UI
+const canvas = document.getElementById('plot');
+const ctx = canvas.getContext('2d');
+const timeline = document.getElementById('timeline');
+const tickTrack = document.getElementById('tickTrack');
+const yearLabel = document.getElementById('yearLabel');
+const coverPctEl = document.getElementById('coverPct');
+const advancedPanel = document.getElementById('advancedPanel');
+const speedEl = document.getElementById('speed');
+const speedLabel = document.getElementById('speedLabel');
+
+// Offscreen canvas for cover raster
+const covCanvas = document.createElement('canvas');
+covCanvas.width = CANVAS_PX; covCanvas.height = CANVAS_PX;
+const covCtx = covCanvas.getContext('2d', {willReadFrequently:true});
+
+// Time controls
+let play = false;
+let simTime = 0.0;                 // years
+const maxYears = 30.0;
+const baseYearsPerSecond = 0.15;   // 1× playback mapping (1 s ≈ 0.15 yr)
+let lastTick = null;
+let playbackSpeed = 1.0;
+
+// Disturbance config (defaults restored; user-editable in Advanced)
+const disturb = {
+  startYear: 3,
+  everyYears: 4,
+  lingerYears: 4,
+  pResist: 0.35,
+  pPartial: 0.45,
+  pCrash: 0.20,
+  vuln: { massive: 0.7, branch_med: 1.0, branch_fast: 1.25 },
+  partialMin: 0.2,
+  partialMax: 0.6,
+  smallThresh: 200,
+  smallCrashBoost: 1.5
+};
+
+// Species styles & patch irregularity
+const speciesDefs = {
+  massive:     { id:'massive', color:'#d2b48c', irregularity:0.06, lobes:  6 },
+  branch_med:  { id:'branch_med', color:'#ff8fbf', irregularity:0.13, lobes: 10 },
+  branch_fast: { id:'branch_fast', color:'#d9c3ff', irregularity:0.20, lobes: 14 }
+};
+
+// Advanced (size distributions & size-dependent mortality)
+const adv = {
+  mu: { massive: 3.6, branch_med: 2.8, branch_fast: 2.4 },
+  sigma: { massive: 0.45, branch_med: 0.5, branch_fast: 0.55 },
+  minD: { massive: 20, branch_med: 10, branch_fast: 5 },
+  maxD: { massive: 100, branch_med: 40, branch_fast: 30 },
+  count: { massive: 40, branch_med: 120, branch_fast: 180 },
+  mortA: 4.0,
+  mortK: 0.08
+};
+
+// Inputs (growth/recruit/mort)
+const controls = {
+  g_massive: document.getElementById('g_massive'),
+  r_massive: document.getElementById('r_massive'),
+  m_massive: document.getElementById('m_massive'),
+  g_branch_med: document.getElementById('g_branch_med'),
+  r_branch_med: document.getElementById('r_branch_med'),
+  m_branch_med: document.getElementById('m_branch_med'),
+  g_branch_fast: document.getElementById('g_branch_fast'),
+  r_branch_fast: document.getElementById('r_branch_fast'),
+  m_branch_fast: document.getElementById('m_branch_fast')
+};
+
+// ====== Utility ======
+function cmToPx(cm){ return cm * CM_TO_PX; }
+function areaCm2ToRadiusCm(area){ return Math.sqrt(Math.max(0, area) / Math.PI); }
+function randRange(a,b){ return a + Math.random()*(b-a); }
+function distanceSq(x1,y1,x2,y2){ const dx=x1-x2, dy=y1-y2; return dx*dx + dy*dy; }
+function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+function sampleLogNormal(mu, sigma){
+  let u=0,v=0; while(u===0) u=Math.random(); while(v===0) v=Math.random();
+  const z=Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+  return Math.exp(mu + sigma*z);
+}
+
+// ====== Colonies ======
+let colonies=[]; let nextId=1;
+function newShapeForSpecies(sp){
+  const def = speciesDefs[sp];
+  const amp = def.irregularity;
+  return { lobes:def.lobes, amp1:amp, amp2:amp*0.6, phase1:Math.random()*Math.PI*2, phase2:Math.random()*Math.PI*2 };
+}
+function addColony(species, area_cm2, x_cm, y_cm){
+  const baseR = areaCm2ToRadiusCm(area_cm2);
+  colonies.push({ id:nextId++, species, area_cm2: Math.max(0.5,area_cm2), x_cm, y_cm, baseR_cm:baseR, shape:newShapeForSpecies(species), paleUntilYear:-Infinity });
+}
+function colonyMaxRadius(cmBaseR, sp){ return cmBaseR * (1 + speciesDefs[sp].irregularity*1.6); }
+function anyOverlap(x_cm, y_cm, radius_cm, ignoreId=-1){
+  for(const o of colonies){ if(o.id===ignoreId) continue; const rr=colonyMaxRadius(o.baseR_cm,o.species); const rsum=rr+radius_cm; if(distanceSq(o.x_cm,o.y_cm,x_cm,y_cm) < (rsum*rsum) - 1e-6) return true; }
+  return false;
+}
+function overlapsAnyone(colony, newRadius_cm){ return anyOverlap(colony.x_cm, colony.y_cm, newRadius_cm, colony.id); }
+
+// ====== Year ticks ======
+(function buildYearTicks(){ const dl=document.getElementById('yearTicks'); dl.innerHTML=''; for(let y=0;y<=maxYears;y+=1){ const opt=document.createElement('option'); opt.value=''+y; dl.appendChild(opt);} })();
+function buildDisturbanceTicks(){
+  tickTrack.innerHTML='';
+  const min=+timeline.min, max=+timeline.max; let y=disturb.startYear;
+  while(y <= max){ const tick=document.createElement('div'); tick.className='tick'; const frac=(y-min)/(max-min); tick.style.left=`calc(${(frac*100).toFixed(4)}% - 1px)`; tick.title=`Disturbance year ${y.toFixed(1)}`; tickTrack.appendChild(tick); y += disturb.everyYears; }
+}
+
+// ====== Drawing ======
+function background(){ const g=ctx.createLinearGradient(0,0,0,canvas.height); g.addColorStop(0,'#182028'); g.addColorStop(1,'#10171d'); ctx.fillStyle=g; ctx.fillRect(0,0,canvas.width,canvas.height); }
+function drawScaleBar(){ const px=cmToPx(100); const pad=18; const y=canvas.height-pad; const x0=pad, x1=pad+px; ctx.strokeStyle='rgba(255,255,255,0.9)'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(x0,y); ctx.lineTo(x1,y); ctx.stroke(); ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(x0,y-6); ctx.lineTo(x0,y+6); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x1,y-6); ctx.lineTo(x1,y+6); ctx.stroke(); ctx.fillStyle='rgba(255,255,255,0.85)'; ctx.font='12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial'; ctx.fillText('1 m', x0 + (px/2) - 10, y - 8); }
+function buildPatchPath(c, targetCtx){ const {lobes,amp1,amp2,phase1,phase2}=c.shape; const baseR=c.baseR_cm; const steps=120; targetCtx.beginPath(); for(let i=0;i<=steps;i++){ const t=(i/steps)*Math.PI*2; const r=baseR*Math.max(0.6,(1+ amp1*Math.sin(lobes*t+phase1) + amp2*Math.sin((lobes*0.5)*t+phase2))); const x=cmToPx(c.x_cm + r*Math.cos(t)); const y=cmToPx(c.y_cm + r*Math.sin(t)); if(i===0) targetCtx.moveTo(x,y); else targetCtx.lineTo(x,y);} targetCtx.closePath(); }
+function renderColony(c, nowYear){ buildPatchPath(c, ctx); const pale=(nowYear < c.paleUntilYear); if(pale){ ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.fill(); ctx.globalCompositeOperation='multiply'; ctx.fillStyle=speciesDefs[c.species].color; ctx.fill(); ctx.globalCompositeOperation='source-over'; } else { ctx.fillStyle=speciesDefs[c.species].color; ctx.globalAlpha=0.95; ctx.fill(); ctx.globalAlpha=1.0; } ctx.strokeStyle='rgba(0,0,0,0.14)'; ctx.lineWidth=1; ctx.stroke(); }
+
+// ====== Controls ======
+document.getElementById('playBtn').addEventListener('click', ()=>{ play=true; lastTick=null; });
+document.getElementById('pauseBtn').addEventListener('click', ()=>{ play=false; lastTick=null; });
+document.getElementById('resetBtn').addEventListener('click', resetAll);
+document.getElementById('spawnMany').addEventListener('click', spawnMosaic);
+document.getElementById('useDefaults').addEventListener('click', ()=>{
+  controls.g_massive.value=60; controls.r_massive.value=0.0002; controls.m_massive.value=20;
+  controls.g_branch_med.value=400; controls.r_branch_med.value=0.001; controls.m_branch_med.value=60;
+  controls.g_branch_fast.value=1000; controls.r_branch_fast.value=0.002; controls.m_branch_fast.value=120;
+});
+document.getElementById('toggleAdvanced').addEventListener('click', ()=>{ advancedPanel.style.display=(advancedPanel.style.display==='none')?'block':'none'; });
+
+timeline.min=0; timeline.max=maxYears; timeline.step=0.5; timeline.value=0; yearLabel.textContent=simTime.toFixed(1);
+timeline.addEventListener('input', ()=>{ const newT=parseFloat(timeline.value)||0; rebuildToTime(newT); });
+
+speedEl.addEventListener('input', ()=>{ playbackSpeed = parseFloat(speedEl.value)||1; speedLabel.textContent = `${playbackSpeed.toFixed(2).replace(/\.00$/, '')}×`; });
+
+// ====== Advanced bindings ======
+function bindAdvanced(){
+  const get=(id)=>document.getElementById(id);
+  const ids=['mu_massive','sigma_massive','minD_massive','maxD_massive','count_massive','mu_branch_med','sigma_branch_med','minD_branch_med','maxD_branch_med','count_branch_med','mu_branch_fast','sigma_branch_fast','minD_branch_fast','maxD_branch_fast','count_branch_fast','mortA','mortK','advStartYear','advIntervalYears','advLingerYears','advPResist','advPPartial','advPCrash'];
+  const el={}; ids.forEach(id=> el[id]=get(id));
+  const sync=()=>{
+    adv.mu.massive=parseFloat(el.mu_massive.value)||adv.mu.massive; adv.sigma.massive=parseFloat(el.sigma_massive.value)||adv.sigma.massive; adv.minD.massive=parseFloat(el.minD_massive.value)||adv.minD.massive; adv.maxD.massive=parseFloat(el.maxD_massive.value)||adv.maxD.massive; adv.count.massive=parseInt(el.count_massive.value)||adv.count.massive;
+    adv.mu.branch_med=parseFloat(el.mu_branch_med.value)||adv.mu.branch_med; adv.sigma.branch_med=parseFloat(el.sigma_branch_med.value)||adv.sigma.branch_med; adv.minD.branch_med=parseFloat(el.minD_branch_med.value)||adv.minD.branch_med; adv.maxD.branch_med=parseFloat(el.maxD_branch_med.value)||adv.maxD.branch_med; adv.count.branch_med=parseInt(el.count_branch_med.value)||adv.count.branch_med;
+    adv.mu.branch_fast=parseFloat(el.mu_branch_fast.value)||adv.mu.branch_fast; adv.sigma.branch_fast=parseFloat(el.sigma_branch_fast.value)||adv.sigma.branch_fast; adv.minD.branch_fast=parseFloat(el.minD_branch_fast.value)||adv.minD.branch_fast; adv.maxD.branch_fast=parseFloat(el.maxD_branch_fast.value)||adv.maxD.branch_fast; adv.count.branch_fast=parseInt(el.count_branch_fast.value)||adv.count.branch_fast;
+    adv.mortA=parseFloat(el.mortA.value)||adv.mortA; adv.mortK=parseFloat(el.mortK.value)||adv.mortK;
+
+    // Disturbance schedule & probabilities
+    const sY=parseFloat(el.advStartYear.value); const eY=parseFloat(el.advIntervalYears.value); const lY=parseFloat(el.advLingerYears.value);
+    disturb.startYear = isFinite(sY)? sY : disturb.startYear;
+    disturb.everyYears = (eY>0 && isFinite(eY))? eY : disturb.everyYears;
+    disturb.lingerYears = (lY>=0 && isFinite(lY))? lY : disturb.lingerYears;
+
+    let pR = Math.max(0, Math.min(100, parseFloat(el.advPResist.value)||35));
+    let pP = Math.max(0, Math.min(100, parseFloat(el.advPPartial.value)||45));
+    let pC = Math.max(0, Math.min(100, parseFloat(el.advPCrash.value)||20));
+    const sum = pR+pP+pC || 100; pR/=sum; pP/=sum; pC/=sum;
+    disturb.pResist=pR; disturb.pPartial=pP; disturb.pCrash=pC;
+
+    buildDisturbanceTicks();
+  };
+  Object.values(el).forEach(inp=> inp.addEventListener('change', sync));
+}
+
+// ====== Simulation helpers ======
+function resetAll(){ firedEvents.clear(); simTime=0; timeline.value=0; colonies=[]; nextId=1; buildDisturbanceTicks(); spawnMosaic(); updateCoverDisplay(true); draw(); }
+function speciesParams(sp){ if(sp==='massive') return { g:+controls.g_massive.value, r:+controls.r_massive.value, m:+controls.m_massive.value }; if(sp==='branch_med') return { g:+controls.g_branch_med.value, r:+controls.r_branch_med.value, m:+controls.m_branch_med.value }; return { g:+controls.g_branch_fast.value, r:+controls.r_branch_fast.value, m:+controls.m_branch_fast.value }; }
+function sizeMortFactor(area_cm2){ const D=2*areaCm2ToRadiusCm(area_cm2); return 1 + adv.mortA * Math.exp(-adv.mortK * D); }
+function disturbanceTimes(){ const times=[]; for(let t=disturb.startYear; t<=maxYears+1e-6; t+=disturb.everyYears) times.push(+t.toFixed(6)); return times; }
+let firedEvents=new Set();
+function applyDisturbance(eventYear){ const newColonies=[]; for(const c of colonies){ let pRes=disturb.pResist, pPart=disturb.pPartial, pCrash=disturb.pCrash; const mul=disturb.vuln[c.species]||1; pCrash*=mul; if(c.area_cm2 < disturb.smallThresh) pCrash *= disturb.smallCrashBoost; const sum=pRes+pPart+pCrash; pRes/=sum; pPart/=sum; pCrash/=sum; const u=Math.random(); if(u < pRes){ newColonies.push(c); } else if(u < pRes + pPart){ const frac=randRange(disturb.partialMin,disturb.partialMax); c.area_cm2 *= (1-frac); c.baseR_cm = areaCm2ToRadiusCm(c.area_cm2); c.paleUntilYear=Math.max(c.paleUntilYear, eventYear + disturb.lingerYears); if(c.area_cm2>=0.5) newColonies.push(c); } else { /* crash -> removed */ } } colonies=newColonies; }
+
+// ====== Spatial placement ======
+function findNonOverlappingPosition(radius_cm){ const pad=radius_cm + 5; for(let tries=0; tries<300; tries++){ const x=randRange(pad, PLOT_CM-pad); const y=randRange(pad, PLOT_CM-pad); if(!anyOverlap(x,y,radius_cm)) return {x,y}; } return null; }
+
+// ====== Initialization mosaic ======
+function spawnMosaic(){ colonies=[]; nextId=1; const spawnFor=(sp)=>{ const mu=adv.mu[sp], sigma=adv.sigma[sp], minD=adv.minD[sp], maxD=adv.maxD[sp], target=adv.count[sp]; let placed=0, guard=0; while(placed<target && guard<target*400){ guard++; let d=sampleLogNormal(mu,sigma); if(d<minD || d>maxD) continue; const area=Math.PI*Math.pow(d/2,2); const r=d/2; const pos=findNonOverlappingPosition(r); if(pos){ addColony(sp, area, pos.x, pos.y); placed++; } } };
+  spawnFor('massive'); spawnFor('branch_med'); spawnFor('branch_fast'); coverDirty=true; draw(); }
+
+// ====== Growth, mortality, recruitment ======
+function simStep(dtYears){
+  const t0=simTime, t1=simTime + dtYears + 1e-9;
+  for(const t of disturbanceTimes()){ if(t0 < t && t <= t1 && !firedEvents.has(t)){ firedEvents.add(t); applyDisturbance(t); } }
+
+  for(const c of colonies){ const {g,m}=speciesParams(c.species); const newArea=c.area_cm2 + Math.max(0,g)*dtYears; const newBaseR=areaCm2ToRadiusCm(newArea); const newBoundR=colonyMaxRadius(newBaseR, c.species); if(!overlapsAnyone(c,newBoundR)){ c.area_cm2=newArea; c.baseR_cm=newBaseR; } let mort=Math.max(0,m)*sizeMortFactor(c.area_cm2); c.area_cm2=Math.max(0, c.area_cm2 - mort*dtYears); c.baseR_cm=areaCm2ToRadiusCm(c.area_cm2); }
+  colonies=colonies.filter(c=> c.area_cm2>=0.5);
+
+  const totalArea=colonies.reduce((s,c)=> s+c.area_cm2, 0); const freeArea=Math.max(0, TOTAL_PLOT_CM2 - totalArea);
+  const tryRecruit=(sp)=>{ const {r}=speciesParams(sp); const lambda=Math.max(0,r)*freeArea*dtYears; let n=Math.min(300, Math.floor(lambda + Math.random())); for(let i=0;i<n;i++){ const a=randRange(1,4); const rad=areaCm2ToRadiusCm(a); const pos=findNonOverlappingPosition(rad); if(!pos) break; addColony(sp, a, pos.x, pos.y); } };
+  tryRecruit('massive'); tryRecruit('branch_med'); tryRecruit('branch_fast');
+  coverDirty=true;
+}
+
+// ====== Cover computation (from patches) ======
+let coverDirty=true; let lastCoverPct=0; let lastCoverComputeTs=0;
+function computeCoverPctFromRaster(){ covCtx.clearRect(0,0,covCanvas.width,covCanvas.height); for(const c of colonies){ buildPatchPath(c, covCtx); covCtx.fillStyle='#fff'; covCtx.fill(); } const img=covCtx.getImageData(0,0,covCanvas.width,covCanvas.height).data; let occupied=0; for(let i=3;i<img.length;i+=4){ if(img[i]>0) occupied++; } const total=covCanvas.width*covCanvas.height; return (occupied/total)*100; }
+function updateCoverDisplay(force=false){ const now=performance.now(); if(force || coverDirty || (!play) || (now - lastCoverComputeTs > 400)){ lastCoverPct=computeCoverPctFromRaster(); coverPctEl.textContent=`Total coral cover: ${lastCoverPct.toFixed(2)} %`; coverDirty=false; lastCoverComputeTs=now; } }
+
+// ====== Render ======
+function draw(){ background(); const nowYear=simTime; for(const c of colonies){ renderColony(c, nowYear); } drawScaleBar(); updateCoverDisplay(); }
+
+// ====== Animation loop ======
+function animate(ts){ if(!lastTick) lastTick=ts; const elapsed=(ts-lastTick)/1000; lastTick=ts; if(play){ const dtYears=elapsed * baseYearsPerSecond * playbackSpeed; const sub=Math.max(1, Math.ceil(dtYears/0.1)); const smallDt=dtYears/sub; for(let i=0;i<sub;i++){ simStep(smallDt); simTime += smallDt; if(simTime >= maxYears){ simTime = maxYears; play=false; break; } } timeline.value=simTime; yearLabel.textContent=simTime.toFixed(2); } draw(); requestAnimationFrame(animate); }
+
+// ====== Scrub rebuild ======
+function rebuildToTime(targetYear){ firedEvents.clear(); colonies=[]; nextId=1; spawnMosaic(); simTime=0; const step=0.25; while(simTime + step <= targetYear - 1e-9){ simStep(step); simTime+=step; } const rem=Math.max(0, targetYear - simTime); if(rem>1e-6){ simStep(rem); simTime+=rem; } timeline.value=simTime; yearLabel.textContent=simTime.toFixed(2); draw(); updateCoverDisplay(true); }
+
+// ====== Self tests ======
+function runSelfTests(){ const panel=document.getElementById('selfTests'); const logs=[]; const saved=colonies.slice(); const savedTime=simTime; const savedEvents=new Set([...firedEvents]); colonies=[]; covCtx.clearRect(0,0,CANVAS_PX,CANVAS_PX); let c0=computeCoverPctFromRaster(); logs.push(`Test1 empty cover: ${c0.toFixed(3)}% (expect ~0)`); colonies=[]; addColony('massive', Math.PI*100*100, 500, 500); let c1=computeCoverPctFromRaster(); logs.push(`Test2 r=100cm cover: ${c1.toFixed(2)}% (expect ~3.14%)`); // Disturbance schedule sanity
+  let times=disturbanceTimes(); logs.push(`Test3 first events: ${times.slice(0,3).join(', ')} (expect ~3, 7, 11)`);
+  colonies=saved; simTime=savedTime; firedEvents=savedEvents; const ok=(c0<0.2) && (Math.abs(c1-3.14)<0.9) && (Math.abs(times[0]-3)<0.1);
+  if(!ok){ panel.style.display='block'; panel.innerHTML = `<strong>Self-checks</strong><pre>${logs.join('\n')}</pre>`; }
+}
+
+// ====== Boot ======
+function buildFixedDisturbanceTicks(){ buildDisturbanceTicks(); }
+bindAdvanced();
+buildFixedDisturbanceTicks();
+spawnMosaic();
+updateCoverDisplay(true);
+runSelfTests();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
