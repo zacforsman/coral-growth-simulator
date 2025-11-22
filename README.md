@@ -10,10 +10,13 @@ This initial beta version is a proof of concept, a simple top down visualization
 <img width="1588" height="1087" alt="coral-growth-sim-screenshot" src="https://github.com/user-attachments/assets/21e01607-9ede-44fb-855a-0016c09b6ae7" />
 
 
+**Next Steps:**
+Hopefully, this is a first step to spawning feedback, iteration and improvement. Please play with the settings and have fun. What parameter combinations lead to interesting results? Spot any glaring issues or problems? Have suggestions or ideas to improve it? Want to play with AI to make this into something more useful or fun? Please feel free to comment, contribute or fork as you see fit.
+
 **How it was made:**
 The initial proof of concept/beta was made by 'vibe coding' through the conversation below with Chat GPT-5.  It was definitely not a one shot process but the result of a long back and forth conversation.  The model did very well despite a few hallucinations and side tracks, nevertheless I the end result is a good starting point and hopefully it can improve from here.   
 
-**GPt5 prompt:**
+**GPt5 conversation (very long!):**
 
 Let’s create a ‘coral growth simulator’, that will help marine scientists and restoration practitioners understand and predict ecological change on coral reefs. The simulator should focus on a top down view of a 10 x 10 m plot with a 1m scale bar. Against a gray background there are 3 generic coral species represented by different colors and shapes: a massive slow growing coral represented by light brown circles, a medium growth rate branching coral represented by thick pink branches, a high growth rate coral with thin light purple branches.
 There are the following user controlled inputs for each type of coral:
