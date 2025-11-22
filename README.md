@@ -2,7 +2,7 @@
 # **Coral Growth Simulator**
 
 **Motivation:** 
-I've always wanted to visualize how a coral reef changes through time, with the ability to see a timelapse of a dynamic coral reef. If you could turn the dials and play with biological parameters based loosely on realistic data, how it change the composition of the community through time? What small changes make the biggest impacts? How much growth and recruitment is needed to balance ecological disturbance? If we start with a very basic simulation, can we make it realistic, useful, and fun to play with?  
+I've always wanted to visualize how a coral reef changes through time, with the ability to see a timelapse of a dynamic coral reef. If you could turn the dials and play with biological parameters based loosely on realistic data, how does it change the composition of the community through time? What small changes make the biggest impacts? How much growth and recruitment is needed to balance ecological disturbance? If we start with a very basic simulation, can we make it realistic, useful, and fun to play with?  
 
 **Beta version:** 
 This initial beta version is a proof of concept, a simple top down visualization of a 10 x 10m patch of 'reef' through time.  The simulator has toggles for playback speed, number and severity of disturbances, as well as for rates of growth, recruitment and mortality for three 'species' of corals.  Hopefully future iterations will include competition, more realistic graphics or 3D models.   
